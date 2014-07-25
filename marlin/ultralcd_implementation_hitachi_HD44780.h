@@ -250,10 +250,17 @@ static void lcd_implementation_status_screen()
         lcd.print(' ');
 #  else
     lcd.setCursor(0,1);
-    lcd.print('X');
-    lcd.print(ftostr3(current_position[X_AXIS]));
-    lcd_printPGM(PSTR(" Y"));
-    lcd.print(ftostr3(current_position[Y_AXIS]));
+    if (READ(64))
+    {
+      lcd.print('X');
+      lcd.print(ftostr3(current_position[X_AXIS]));
+      lcd_printPGM(PSTR(" Y"));
+      lcd.print(ftostr3(current_position[Y_AXIS]));
+      //WRITE(HEATER_1_PIN, 0);
+    }else{
+      lcd_printPGM(PSTR("MATERIAL  "));
+      //WRITE(HEATER_1_PIN, 1);
+    }
 #  endif//EXTRUDERS > 1 || TEMP_SENSOR_BED != 0
 # endif//LCD_WIDTH > 19
     lcd.setCursor(LCD_WIDTH - 8, 1);

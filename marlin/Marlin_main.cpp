@@ -37,7 +37,7 @@
 #include "cardreader.h"
 #include "watchdog.h"
 #include "ConfigurationStore.h"
-#include "language.h”
+#include "language.h"
 #include "pins_arduino.h"
 
 #if DIGIPOTSS_PIN > -1
@@ -740,7 +740,7 @@ void process_commands()
       
       #if Z_HOME_DIR > 0                      // If homing away from BED do Z first
       if((home_all_axis) || (code_seen(axis_codes[Z_AXIS]))) {
-        HOMEAXIS(Z);
+        //HOMEAXIS(Z);
       }
       #endif
       
@@ -780,7 +780,7 @@ void process_commands()
       
       #if Z_HOME_DIR < 0                      // If homing towards BED do Z last
       if((home_all_axis) || (code_seen(axis_codes[Z_AXIS]))) {
-        HOMEAXIS(Z);
+        //HOMEAXIS(Z);
       }
       #endif
       
@@ -1027,6 +1027,14 @@ void process_commands()
 
         SERIAL_PROTOCOLPGM(" B@:");
         SERIAL_PROTOCOL(getHeaterPower(-1));  
+        
+        SERIAL_PROTOCOLPGM(" M:");
+        if (READ(64))
+        {
+          SERIAL_PROTOCOLPGM("FULL");
+        }else{
+          SERIAL_PROTOCOLPGM("EMPTY");
+        }
 
         SERIAL_PROTOCOLLN("");
       return;

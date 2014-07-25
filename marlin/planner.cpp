@@ -177,9 +177,9 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
 
   long acceleration = block->acceleration_st;
   int32_t accelerate_steps =
-    ceil(estimate_acceleration_distance(block->initial_rate, block->nominal_rate, acceleration));
+    ceil(estimate_acceleration_distance(initial_rate, block->nominal_rate, acceleration));
   int32_t decelerate_steps =
-    floor(estimate_acceleration_distance(block->nominal_rate, block->final_rate, -acceleration));
+    floor(estimate_acceleration_distance(block->nominal_rate, final_rate, -acceleration));
 
   // Calculate the size of Plateau of Nominal Rate.
   int32_t plateau_steps = block->step_event_count-accelerate_steps-decelerate_steps;
@@ -188,7 +188,7 @@ void calculate_trapezoid_for_block(block_t *block, float entry_factor, float exi
   // have to use intersection_distance() to calculate when to abort acceleration and start braking
   // in order to reach the final_rate exactly at the end of this block.
   if (plateau_steps < 0) {
-    accelerate_steps = ceil(intersection_distance(block->initial_rate, block->final_rate, acceleration, block->step_event_count));
+    accelerate_steps = ceil(intersection_distance(initial_rate, final_rate, acceleration, block->step_event_count));
     accelerate_steps = max(accelerate_steps,0); // Check limits due to numerical round-off
     accelerate_steps = min((uint32_t)accelerate_steps,block->step_event_count);//(We can cast here to unsigned, because the above line ensures that we are above zero)
     plateau_steps = 0;
@@ -544,8 +544,16 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   block->busy = false;
 
   // Number of steps for each axis
-  block->steps_x = labs(target[X_AXIS]-position[X_AXIS]);
-  block->steps_y = labs(target[Y_AXIS]-position[Y_AXIS]);
+#ifndef COREXY
+// default non-h-bot planning
+block->steps_x = labs(target[X_AXIS]-position[X_AXIS]);
+block->steps_y = labs(target[Y_AXIS]-position[Y_AXIS]);
+#else
+// corexy planning
+// these equations follow the form of the dA and dB equations on http://www.corexy.com/theory.html
+block->steps_x = labs((target[X_AXIS]-position[X_AXIS]) + (target[Y_AXIS]-position[Y_AXIS]));
+block->steps_y = labs((target[X_AXIS]-position[X_AXIS]) - (target[Y_AXIS]-position[Y_AXIS]));
+#endif
   block->steps_z = labs(target[Z_AXIS]-position[Z_AXIS]);
   block->steps_e = labs(target[E_AXIS]-position[E_AXIS]);
   block->steps_e *= extrudemultiply;
@@ -562,6 +570,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
 
   // Compute direction bits for this block 
   block->direction_bits = 0;
+#ifndef COREXY
   if (target[X_AXIS] < position[X_AXIS])
   {
     block->direction_bits |= (1<<X_AXIS); 
@@ -570,6 +579,16 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   {
     block->direction_bits |= (1<<Y_AXIS); 
   }
+#else
+  if ((target[X_AXIS]-position[X_AXIS]) + (target[Y_AXIS]-position[Y_AXIS]) < 0)
+  {
+    block->direction_bits |= (1<<X_AXIS); 
+  }
+  if ((target[X_AXIS]-position[X_AXIS]) - (target[Y_AXIS]-position[Y_AXIS]) < 0)
+  {
+    block->direction_bits |= (1<<Y_AXIS); 
+  }
+#endif
   if (target[Z_AXIS] < position[Z_AXIS])
   {
     block->direction_bits |= (1<<Z_AXIS); 
@@ -582,8 +601,16 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   block->active_extruder = extruder;
 
   //enable active axes
+  #ifdef COREXY
+  if((block->steps_x != 0) || (block->steps_y != 0))
+  {
+    enable_x();
+    enable_y();
+  }
+  #else
   if(block->steps_x != 0) enable_x();
   if(block->steps_y != 0) enable_y();
+  #endif
 #ifndef Z_LATE_ENABLE
   if(block->steps_z != 0) enable_z();
 #endif
@@ -606,8 +633,13 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
   } 
 
   float delta_mm[4];
-  delta_mm[X_AXIS] = (target[X_AXIS]-position[X_AXIS])/axis_steps_per_unit[X_AXIS];
-  delta_mm[Y_AXIS] = (target[Y_AXIS]-position[Y_AXIS])/axis_steps_per_unit[Y_AXIS];
+  #ifndef COREXY
+    delta_mm[X_AXIS] = (target[X_AXIS]-position[X_AXIS])/axis_steps_per_unit[X_AXIS];
+    delta_mm[Y_AXIS] = (target[Y_AXIS]-position[Y_AXIS])/axis_steps_per_unit[Y_AXIS];
+  #else
+    delta_mm[X_AXIS] = ((target[X_AXIS]-position[X_AXIS]) + (target[Y_AXIS]-position[Y_AXIS]))/axis_steps_per_unit[X_AXIS];
+    delta_mm[Y_AXIS] = ((target[X_AXIS]-position[X_AXIS]) - (target[Y_AXIS]-position[Y_AXIS]))/axis_steps_per_unit[Y_AXIS];
+  #endif
   delta_mm[Z_AXIS] = (target[Z_AXIS]-position[Z_AXIS])/axis_steps_per_unit[Z_AXIS];
   delta_mm[E_AXIS] = ((target[E_AXIS]-position[E_AXIS])/axis_steps_per_unit[E_AXIS])*extrudemultiply/100.0;
   if ( block->steps_x <=dropsegments && block->steps_y <=dropsegments && block->steps_z <=dropsegments )
@@ -727,7 +759,7 @@ void plan_buffer_line(const float &x, const float &y, const float &z, const floa
       block->acceleration_st = axis_steps_per_sqr_second[Z_AXIS];
   }
   block->acceleration = block->acceleration_st / steps_per_mm;
-  block->acceleration_rate = (long)((float)block->acceleration_st * 8.388608);
+  block->acceleration_rate = (long)((float)block->acceleration_st * (16777216.0 / (F_CPU / 8.0)));
 
 #if 0  // Use old jerk for now
   // Compute path unit vector
