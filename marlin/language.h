@@ -24,7 +24,7 @@
 #define PROTOCOL_VERSION "1.0"
 
 #if MOTHERBOARD == 7 || MOTHERBOARD == 71
-	#define MACHINE_NAME "KamerMaker"
+	#define MACHINE_NAME "Ultimaker"
 	#define FIRMWARE_URL "http://firmware.ultimaker.com"
 #elif MOTHERBOARD == 80
 	#define MACHINE_NAME "Rumba"
