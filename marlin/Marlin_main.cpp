@@ -1028,6 +1028,11 @@ void process_commands()
         SERIAL_PROTOCOLPGM(" B@:");
         SERIAL_PROTOCOL(getHeaterPower(-1));  
         
+        //read current speed override (M220)
+        SERIAL_PROTOCOLPGM(" SPEED(%):");
+        SERIAL_PROTOCOL(   feedmultiply );
+        
+        //read material status
         SERIAL_PROTOCOLPGM(" M:");
         if (READ(64))
         {
@@ -1439,12 +1444,17 @@ void process_commands()
     #endif
     case 220: // M220 S<factor in percent>- set speed factor override percentage
     {
-      if(code_seen('S')) 
+      if(code_seen('S'))
       {
         feedmultiply = code_value() ;
       }
-    }
-    break;
+      else
+      {
+        SERIAL_ECHO_START;
+        SERIAL_ECHO("FeedMultipy ");
+        SERIAL_ECHOLN(feedmultiply);
+      }
+    }break;
     case 221: // M221 S<factor in percent>- set extrude factor override percentage
     {
       if(code_seen('S')) 
